@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="RecipeHub Enterprise — khám phá và chia sẻ công thức nấu ăn">
+<title>Chi tiết công thức | RecipeHub Enterprise</title><link rel="stylesheet" href="/styles.css"></head><body data-page="detail"><header class="topbar">
+  <a class="brand" href="/">🍲 <span>RecipeHub</span> <small>Enterprise</small></a>
+  <nav class="nav" aria-label="Điều hướng chính">
+    <a href="/">Trang chủ</a><a href="/#recipes">Công thức</a>
+    <a href="/editor.html" data-auth hidden>+ Tạo công thức</a>
+    <a href="/admin.html" data-admin hidden>Quản trị</a>
+    <a href="/login.html" data-guest>Đăng nhập</a>
+    <a class="nav-cta" href="/register.html" data-guest>Đăng ký</a>
+    <span id="loginState" class="login-state" data-auth hidden></span>
+    <button type="button" class="text-button" id="logoutBtn" data-auth hidden>Đăng xuất</button>
+  </nav>
+</header>
+<main class="section detail-shell"><a class="back-link" href="/#recipes">← Trở lại danh sách công thức</a>
+<div id="detailContent"><div class="panel"><p>Đang tải chi tiết công thức...</p></div></div>
+<section class="panel comments-panel" id="commentsSection"><div class="section-head"><div><span class="eyebrow">CỘNG ĐỒNG</span><h2>💬 Bình luận</h2></div><span class="count" id="commentsCount">0 bình luận</span></div>
+<div id="commentsList" aria-live="polite"><p class="muted">Đang tải bình luận...</p></div>
+<form id="commentForm" class="comment-form" data-auth hidden><label>Chia sẻ cảm nhận của bạn *
+<textarea id="commentText" rows="3" required maxlength="1000" placeholder="Món ăn này của bạn thế nào?"></textarea></label>
+<button class="button" type="submit">Đăng bình luận</button></form>
+<p id="commentGuest" data-guest>Để bình luận, vui lòng <a class="back-link" href="/login.html">đăng nhập</a>. Bạn vẫn xem được mọi bình luận.</p></section>
+</main><footer>RecipeHub Enterprise · Java 25 · Spring Boot · MySQL · JWT · <a href="/swagger-ui.html" target="_blank" rel="noopener noreferrer">API Docs</a></footer>
+<div class="toast" id="status" role="status" aria-live="polite" hidden></div>
+<script src="/app.js" defer></script></body></html>

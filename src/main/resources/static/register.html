@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="RecipeHub Enterprise — khám phá và chia sẻ công thức nấu ăn">
+<title>Đăng ký | RecipeHub Enterprise</title><link rel="stylesheet" href="/styles.css"></head><body data-page="register"><header class="topbar">
+  <a class="brand" href="/">🍲 <span>RecipeHub</span> <small>Enterprise</small></a>
+  <nav class="nav" aria-label="Điều hướng chính">
+    <a href="/">Trang chủ</a><a href="/#recipes">Công thức</a>
+    <a href="/editor.html" data-auth hidden>+ Tạo công thức</a>
+    <a href="/admin.html" data-admin hidden>Quản trị</a>
+    <a href="/login.html" data-guest>Đăng nhập</a>
+    <a class="nav-cta" href="/register.html" data-guest>Đăng ký</a>
+    <span id="loginState" class="login-state" data-auth hidden></span>
+    <button type="button" class="text-button" id="logoutBtn" data-auth hidden>Đăng xuất</button>
+  </nav>
+</header>
+<main class="auth-layout"><section class="auth-intro"><span class="eyebrow">BẮT ĐẦU TỪ GIAN BẾP</span><h1>Tạo tài khoản RecipeHub.</h1><p>Tham gia cộng đồng để chia sẻ công thức của bạn và quản lý bài viết riêng.</p><a href="/#recipes">← Xem công thức không cần tài khoản</a></section>
+<section class="panel auth-card"><h2>Đăng ký tài khoản</h2><p class="muted">Điền đầy đủ bốn thông tin bên dưới.</p>
+<form id="registerForm"><label>Tên đăng nhập <span class="required">*</span><input name="username" required minlength="3" maxlength="50" autocomplete="username"></label>
+<label>Email <span class="required">*</span><input type="email" name="email" required maxlength="100" autocomplete="email"></label>
+<label>Họ và tên <span class="required">*</span><input name="fullName" required maxlength="100" autocomplete="name"></label>
+<label>Mật khẩu <span class="required">*</span><input type="password" name="password" required minlength="8" maxlength="100" autocomplete="new-password"></label>
+<p class="form-message" id="formMessage" role="alert" hidden></p><button class="button full" type="submit">Tạo tài khoản</button></form>
+<p class="auth-switch">Đã có tài khoản? <a href="/login.html">Đăng nhập</a></p></section></main><footer>RecipeHub Enterprise · Java 25 · Spring Boot · MySQL · JWT · <a href="/swagger-ui.html" target="_blank" rel="noopener noreferrer">API Docs</a></footer>
+<div class="toast" id="status" role="status" aria-live="polite" hidden></div>
+<script src="/app.js" defer></script></body></html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="RecipeHub Enterprise — khám phá và chia sẻ công thức nấu ăn">
+<title>Tạo công thức | RecipeHub Enterprise</title><link rel="stylesheet" href="/styles.css"></head><body data-page="editor"><header class="topbar">
+  <a class="brand" href="/">🍲 <span>RecipeHub</span> <small>Enterprise</small></a>
+  <nav class="nav" aria-label="Điều hướng chính">
+    <a href="/">Trang chủ</a><a href="/#recipes">Công thức</a>
+    <a href="/editor.html" data-auth hidden>+ Tạo công thức</a>
+    <a href="/admin.html" data-admin hidden>Quản trị</a>
+    <a href="/login.html" data-guest>Đăng nhập</a>
+    <a class="nav-cta" href="/register.html" data-guest>Đăng ký</a>
+    <span id="loginState" class="login-state" data-auth hidden></span>
+    <button type="button" class="text-button" id="logoutBtn" data-auth hidden>Đăng xuất</button>
+  </nav>
+</header>
+<main class="section editor-shell"><a class="back-link" href="/#recipes">← Danh sách công thức</a>
+<div class="section-head"><div><span class="eyebrow">KHÔNG GIAN CỦA BẠN</span><h1 id="editorHeading">Tạo công thức mới</h1><p>Chia sẻ món ăn theo từng bước. Các trường có dấu * là bắt buộc.</p></div></div>
+<form id="recipeForm" class="panel editor-panel">
+  <h2>Thông tin món ăn</h2><div class="form-grid">
+    <label>Tên món ăn <span class="required">*</span><input name="name" required minlength="2" maxlength="150" placeholder="Gà chiên nước mắm"></label>
+    <label>Danh mục <span class="required">*</span><select name="categoryId" id="recipeCategory" required><option value="">-- Chọn danh mục --</option></select></label>
+    <label>Thời gian nấu (phút) <span class="required">*</span><input name="cookingTime" type="number" min="1" max="1440" value="30" required></label>
+    <label>Khẩu phần <span class="required">*</span><input name="servings" type="number" min="1" max="100" value="2" required></label>
+  </div>
+  <label>Mô tả<textarea name="description" rows="3" placeholder="Giới thiệu ngắn về món ăn"></textarea></label>
+  <label>Ảnh minh họa (URL, không bắt buộc)<input name="imageUrl" type="url" placeholder="https://example.com/mon-an.jpg"></label>
+  <div class="editor-section-head"><div><h2>Nguyên liệu <span class="required">*</span></h2><p class="muted">Bạn có thể thêm nhiều nguyên liệu cho cùng một món ăn.</p></div><button class="button outline" id="addIngredientRow" type="button">+ Thêm dòng</button></div>
+  <div id="ingredientRows"></div><p class="field-error" id="ingredientError" role="alert" hidden></p>
+  <label>Các bước chế biến <span class="required">*</span><textarea name="instructions" rows="8" required minlength="5" placeholder="Bước 1: Sơ chế nguyên liệu...&#10;Bước 2: Ướp gia vị...&#10;Bước 3: Chế biến và trình bày..."></textarea></label>
+  <p class="form-message" id="formMessage" role="alert" hidden></p>
+  <div class="form-actions"><button class="button" id="saveRecipe" type="submit">Lưu công thức</button><a href="/#recipes" class="button outline">Hủy</a></div>
+</form>
+<details class="panel catalog-tools"><summary>+ Không thấy danh mục hoặc nguyên liệu? Thêm mới tại đây</summary>
+<div class="form-grid tools-grid"><form id="categoryForm"><h3>Danh mục mới</h3><label>Tên danh mục *<input name="name" required maxlength="100" placeholder="Món Việt"></label>
+<label>Mô tả<input name="description" maxlength="500"></label><button class="button secondary" type="submit">Thêm danh mục</button></form>
+<form id="ingredientForm"><h3>Nguyên liệu mới</h3><label>Tên nguyên liệu *<input name="name" required maxlength="100" placeholder="Thịt gà"></label>
+<label>Mô tả<input name="description" maxlength="500"></label><button class="button secondary" type="submit">Thêm nguyên liệu</button></form></div></details>
+</main><footer>RecipeHub Enterprise · Java 25 · Spring Boot · MySQL · JWT · <a href="/swagger-ui.html" target="_blank" rel="noopener noreferrer">API Docs</a></footer>
+<div class="toast" id="status" role="status" aria-live="polite" hidden></div>
+<script src="/app.js" defer></script></body></html>

@@ -1,0 +1,926 @@
+diff --git a/ACCOUNT_LOCK_GUIDE.md b/ACCOUNT_LOCK_GUIDE.md
+new file mode 100644
+index 0000000..aac7911
+--- /dev/null
++++ b/ACCOUNT_LOCK_GUIDE.md
+@@ -0,0 +1,51 @@
++# RecipeHub Enterprise — Khóa / mở khóa tài khoản
++
++## Mục đích
++
++- Guest: chỉ xem công thức và bình luận, không cần JWT.
++- USER: tạo/sửa/xóa nội dung của mình.
++- ADMIN: truy cập `/admin.html`, khóa/mở khóa USER và kiểm duyệt nội dung.
++- Khi tài khoản bị khóa: không thể đăng nhập; JWT đã cấp bị từ chối HTTP 401.
++- Sau khi mở khóa: JWT cũ vẫn bị từ chối do `tokenVersion`; người dùng **bắt buộc đăng nhập lại**.
++
++## Cách chạy
++
++1. Sao lưu dự án và **giữ nguyên** file `.env` (nếu dùng Docker) cùng volume MySQL.
++2. Từ thư mục chứa `pom.xml`: `mvn clean verify`.
++3. Chạy `docker compose up --build -d`; không dùng `docker compose down -v`.
++4. `http://localhost:8075/admin.html` → danh sách người dùng → nút **Khóa** / **Mở khóa**.
++5. Cấp Admin bằng SQL thủ công với một tài khoản thử nghiệm: 
++   `UPDATE users SET role = 'ADMIN' WHERE username = 'ten_admin';`
++   Đăng xuất / đăng nhập lại.
++
++### API
++
++`PATCH /api/admin/users/{id}/lock` — cần JWT ADMIN; body:
++```json
++{"reason":"Đăng nội dung spam nhiều lần"}
++```
++
++`PATCH /api/admin/users/{id}/unlock` — cần JWT ADMIN, không có body.
++
++`GET /api/admin/users` — liệt kê tối đa 100 tài khoản gần nhất, bao gồm `enabled`, `lockReason`, `lockedAt`, `lockedBy`.
++
++Mã HTTP: 200 thành công; 400 thiếu lý do; 401 thiếu JWT/JWT bị thu hồi; 403 không phải Admin hoặc cố khóa Admin; 404 ID không tồn tại; 409 khóa trùng hoặc mở khóa khi tài khoản đang hoạt động.
++
++### Dữ liệu cũ & token
++
++Dự án hiện đang có `spring.jpa.hibernate.ddl-auto=update`. Khi khởi động, Hibernate sẽ thêm cột `token_version`, `locked_at`, `lock_reason`, `locked_by` vào bảng `users` nếu DB cho phép. Với dữ liệu thực tế/production, nên dùng Flyway thay cho `ddl-auto=update` và chạy migration có kiểm tra trước.
++
++JWT cũ tạo ở phiên bản trước bản vá **không có `tokenVersion`** nên sẽ không còn hợp lệ sau khi cập nhật. Mọi người phải đăng nhập lại. JWT phiên bản mới chứa `tokenVersion`, được đối chiếu với MySQL trên từng request có Bearer token. Cách này ưu tiên khả năng thu hồi ngay, đổi lại mỗi request có JWT sẽ cần truy vấn DB (có thể tối ưu cache sau).
++
++### Kiểm thử thủ công
++
++1. Với ADMIN vào Dashboard, khóa User B với lý do bất kỳ.
++2. User B gọi `GET /api/users/me` bằng token cũ → 401.
++3. User B đăng nhập lại khi vẫn bị khóa → 401.
++4. Guest gọi `GET /api/recipes` không cần token → 200.
++5. ADMIN mở khóa User B.
++6. Token cũ của User B vẫn trả 401; đăng nhập User B lại nhận token mới → `GET /api/users/me` trả 200.
++7. USER thường thử gọi PATCH lock → 403; Admin cố khóa chính mình → 403.
++8. Kiểm tra `mvn clean verify`, `target/site/jacoco/index.html` và `docker compose ps`.
++
++**Chú ý**: Trang quản trị phục vụ qua static HTML công khai, nhưng toàn bộ endpoint dữ liệu và thao tác quản trị bắt buộc xác thực ADMIN tại backend. Không đăng token, mật khẩu hoặc `.env` lên GitHub.
+diff --git a/README.md b/README.md
+index d995016..eab6f7a 100644
+--- a/README.md
++++ b/README.md
+@@ -186,3 +186,9 @@ Gửi lại (1) lệnh vừa chạy, (2) 30–50 dòng log lỗi đầu tiên ho
+ ### JUnit version note
+ 
+ Các bài test dùng JUnit Jupiter (`@Test`, `@ExtendWith(MockitoExtension.class)`), theo phong cách viết JUnit 5. Với Spring Boot 4.1.1, Spring Boot BOM tự quản lý JUnit Jupiter **6.x**. Đây không phải việc ép dependency về artifact JUnit 5.x; lựa chọn này ưu tiên tương thích với Boot 4 và sẽ được kiểm chứng khi Maven verify.
++
++
++## Khóa/mở khóa tài khoản (Admin)
++
++API `PATCH /api/admin/users/{id}/lock` và `PATCH /api/admin/users/{id}/unlock`.
++JWT cũ bị thu hồi bằng `tokenVersion`; xem [ACCOUNT_LOCK_GUIDE.md](ACCOUNT_LOCK_GUIDE.md) để chạy và kiểm thử.
+diff --git a/postman/RecipeHub_Admin_Lock_Manual.postman_collection.json b/postman/RecipeHub_Admin_Lock_Manual.postman_collection.json
+new file mode 100644
+index 0000000..ff9f08c
+--- /dev/null
++++ b/postman/RecipeHub_Admin_Lock_Manual.postman_collection.json
+@@ -0,0 +1,143 @@
++{
++  "info": {
++    "name": "RecipeHub Admin Account Lock (manual)",
++    "_postman_id": "7c8c9f7a-4fa9-46bf-aea1-ec290b1e8f77",
++    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
++    "description": "Không chạy chung với CRUD collection; chỉ chạy khi đã có Admin JWT và User ID."
++  },
++  "item": [
++    {
++      "name": "01 List users (Admin)",
++      "request": {
++        "method": "GET",
++        "header": [
++          {
++            "key": "Authorization",
++            "value": "Bearer {{adminToken}}"
++          }
++        ],
++        "url": {
++          "raw": "{{baseUrl}}/api/admin/users",
++          "host": [
++            "{{baseUrl}}"
++          ],
++          "path": [
++            "api",
++            "admin",
++            "users"
++          ]
++        }
++      },
++      "event": [
++        {
++          "listen": "test",
++          "script": {
++            "type": "text/javascript",
++            "exec": [
++              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
++            ]
++          }
++        }
++      ]
++    },
++    {
++      "name": "02 Lock USER by ID (Admin)",
++      "request": {
++        "method": "PATCH",
++        "header": [
++          {
++            "key": "Authorization",
++            "value": "Bearer {{adminToken}}"
++          },
++          {
++            "key": "Content-Type",
++            "value": "application/json"
++          }
++        ],
++        "url": {
++          "raw": "{{baseUrl}}/api/admin/users/{{targetUserId}}/lock",
++          "host": [
++            "{{baseUrl}}"
++          ],
++          "path": [
++            "api",
++            "admin",
++            "users",
++            "{{targetUserId}}",
++            "lock"
++          ]
++        },
++        "body": {
++          "mode": "raw",
++          "raw": "{\"reason\":\"Kiểm thử khóa tài khoản\"}",
++          "options": {
++            "raw": {
++              "language": "json"
++            }
++          }
++        }
++      },
++      "event": [
++        {
++          "listen": "test",
++          "script": {
++            "type": "text/javascript",
++            "exec": [
++              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
++            ]
++          }
++        }
++      ]
++    },
++    {
++      "name": "03 Unlock USER by ID (Admin)",
++      "request": {
++        "method": "PATCH",
++        "header": [
++          {
++            "key": "Authorization",
++            "value": "Bearer {{adminToken}}"
++          }
++        ],
++        "url": {
++          "raw": "{{baseUrl}}/api/admin/users/{{targetUserId}}/unlock",
++          "host": [
++            "{{baseUrl}}"
++          ],
++          "path": [
++            "api",
++            "admin",
++            "users",
++            "{{targetUserId}}",
++            "unlock"
++          ]
++        }
++      },
++      "event": [
++        {
++          "listen": "test",
++          "script": {
++            "type": "text/javascript",
++            "exec": [
++              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
++            ]
++          }
++        }
++      ]
++    }
++  ],
++  "variable": [
++    {
++      "key": "baseUrl",
++      "value": "http://localhost:8075"
++    },
++    {
++      "key": "adminToken",
++      "value": ""
++    },
++    {
++      "key": "targetUserId",
++      "value": ""
++    }
++  ]
++}
+diff --git a/src/main/java/recipehub/admin/controller/AdminController.java b/src/main/java/recipehub/admin/controller/AdminController.java
+index 8b59a53..dd833a4 100644
+--- a/src/main/java/recipehub/admin/controller/AdminController.java
++++ b/src/main/java/recipehub/admin/controller/AdminController.java
+@@ -1,16 +1,21 @@
+ package recipehub.admin.controller;
+ 
+ import java.util.List;
++import jakarta.validation.Valid;
+ import org.springframework.http.ResponseEntity;
+ import org.springframework.security.core.annotation.AuthenticationPrincipal;
+ import org.springframework.security.oauth2.jwt.Jwt;
+ import org.springframework.web.bind.annotation.DeleteMapping;
+ import org.springframework.web.bind.annotation.GetMapping;
+ import org.springframework.web.bind.annotation.PathVariable;
++import org.springframework.web.bind.annotation.PatchMapping;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestBody;
+ import org.springframework.web.bind.annotation.RequestMapping;
+ import org.springframework.web.bind.annotation.RestController;
+ import recipehub.admin.dto.AdminSummary;
+ import recipehub.admin.dto.AdminUserResponse;
++import recipehub.admin.dto.LockUserRequest;
+ import recipehub.admin.service.AdminService;
+ import recipehub.comment.dto.CommentResponse;
+ import recipehub.comment.service.CommentService;
+@@ -39,6 +44,17 @@ public class AdminController {
+         return admins.users(jwt.getSubject());
+     }
+ 
++    @PatchMapping("/users/{id}/lock")
++    public AdminUserResponse lockUser(@PathVariable Long id,
++            @Valid @RequestBody LockUserRequest request, @AuthenticationPrincipal Jwt jwt) {
++        return admins.lockUser(jwt.getSubject(), id, request);
++    }
++
++    @PatchMapping("/users/{id}/unlock")
++    public AdminUserResponse unlockUser(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
++        return admins.unlockUser(jwt.getSubject(), id);
++    }
++
+     @GetMapping("/comments")
+     public List<CommentResponse> recentComments(@AuthenticationPrincipal Jwt jwt) {
+         return admins.recentComments(jwt.getSubject());
+diff --git a/src/main/java/recipehub/admin/dto/AdminUserResponse.java b/src/main/java/recipehub/admin/dto/AdminUserResponse.java
+index 025a081..476df48 100644
+--- a/src/main/java/recipehub/admin/dto/AdminUserResponse.java
++++ b/src/main/java/recipehub/admin/dto/AdminUserResponse.java
+@@ -3,4 +3,5 @@ package recipehub.admin.dto;
+ import java.time.LocalDateTime;
+ 
+ public record AdminUserResponse(Long id, String username, String email,
+-        String fullName, String role, boolean enabled, LocalDateTime createdAt) { }
++        String fullName, String role, boolean enabled, LocalDateTime createdAt,
++        LocalDateTime lockedAt, String lockReason, String lockedBy) { }
+diff --git a/src/main/java/recipehub/admin/dto/LockUserRequest.java b/src/main/java/recipehub/admin/dto/LockUserRequest.java
+new file mode 100644
+index 0000000..4b48ab7
+--- /dev/null
++++ b/src/main/java/recipehub/admin/dto/LockUserRequest.java
+@@ -0,0 +1,9 @@
++package recipehub.admin.dto;
++
++import jakarta.validation.constraints.NotBlank;
++import jakarta.validation.constraints.Size;
++
++public record LockUserRequest(
++        @NotBlank(message = "Vui lòng nhập lý do khóa tài khoản")
++        @Size(max = 250, message = "Lý do khóa tối đa 250 ký tự")
++        String reason) { }
+diff --git a/src/main/java/recipehub/admin/service/AdminService.java b/src/main/java/recipehub/admin/service/AdminService.java
+index 226ff7e..36c9422 100644
+--- a/src/main/java/recipehub/admin/service/AdminService.java
++++ b/src/main/java/recipehub/admin/service/AdminService.java
+@@ -1,6 +1,8 @@
+ package recipehub.admin.service;
+ 
++import java.time.LocalDateTime;
+ import java.util.List;
++import java.util.Objects;
+ import org.springframework.data.domain.PageRequest;
+ import org.springframework.data.domain.Sort;
+ import org.springframework.security.access.AccessDeniedException;
+@@ -8,6 +10,9 @@ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ import recipehub.admin.dto.AdminSummary;
+ import recipehub.admin.dto.AdminUserResponse;
++import recipehub.admin.dto.LockUserRequest;
++import recipehub.common.exception.DuplicateResourceException;
++import recipehub.common.exception.ResourceNotFoundException;
+ import recipehub.category.repository.CategoryRepository;
+ import recipehub.comment.dto.CommentResponse;
+ import recipehub.comment.entity.Comment;
+@@ -54,8 +59,7 @@ public class AdminService {
+     public List<AdminUserResponse> users(String username) {
+         requireAdmin(username);
+         return users.findAll(PageRequest.of(0, 100, Sort.by(Sort.Direction.DESC, "id"))).getContent()
+-                .stream().map(user -> new AdminUserResponse(user.getId(), user.getUsername(), user.getEmail(),
+-                        user.getFullName(), user.getRole(), user.isEnabled(), user.getCreatedAt())).toList();
++                .stream().map(this::toUserResponse).toList();
+     }
+ 
+     @Transactional(readOnly = true)
+@@ -64,6 +68,51 @@ public class AdminService {
+         return comments.findTop8ByOrderByCreatedAtDescIdDesc().stream().map(this::toResponse).toList();
+     }
+ 
++    @Transactional
++    public AdminUserResponse lockUser(String adminUsername, Long id, LockUserRequest request) {
++        requireAdmin(adminUsername);
++        User target = findManageableUser(adminUsername, id);
++        if (!target.isEnabled()) {
++            throw new DuplicateResourceException("Tài khoản đã bị khóa");
++        }
++        target.setEnabled(false);
++        target.setLockedAt(LocalDateTime.now());
++        target.setLockReason(request.reason().trim());
++        target.setLockedBy(adminUsername);
++        target.setTokenVersion(target.getTokenVersion() + 1);
++        return toUserResponse(users.save(target));
++    }
++
++    @Transactional
++    public AdminUserResponse unlockUser(String adminUsername, Long id) {
++        requireAdmin(adminUsername);
++        User target = findManageableUser(adminUsername, id);
++        if (target.isEnabled()) {
++            throw new DuplicateResourceException("Tài khoản đang hoạt động");
++        }
++        target.setEnabled(true);
++        target.setLockedAt(null);
++        target.setLockReason(null);
++        target.setLockedBy(null);
++        target.setTokenVersion(target.getTokenVersion() + 1);
++        return toUserResponse(users.save(target));
++    }
++
++    private User findManageableUser(String adminUsername, Long id) {
++        User target = users.findById(id).orElseThrow(() ->
++                new ResourceNotFoundException("Không tìm thấy tài khoản với ID: " + id));
++        if (Objects.equals(target.getUsername(), adminUsername) || "ADMIN".equals(target.getRole())) {
++            throw new AccessDeniedException("Không thể thay đổi trạng thái tài khoản quản trị viên");
++        }
++        return target;
++    }
++
++    private AdminUserResponse toUserResponse(User user) {
++        return new AdminUserResponse(user.getId(), user.getUsername(), user.getEmail(),
++                user.getFullName(), user.getRole(), user.isEnabled(), user.getCreatedAt(),
++                user.getLockedAt(), user.getLockReason(), user.getLockedBy());
++    }
++
+     private CommentResponse toResponse(Comment comment) {
+         User author = comment.getUser();
+         return new CommentResponse(comment.getId(), comment.getRecipe().getId(), author.getId(),
+diff --git a/src/main/java/recipehub/auth/service/AuthService.java b/src/main/java/recipehub/auth/service/AuthService.java
+index dfe4c3a..9c58fcf 100644
+--- a/src/main/java/recipehub/auth/service/AuthService.java
++++ b/src/main/java/recipehub/auth/service/AuthService.java
+@@ -38,7 +38,7 @@ public class AuthService {
+         user.setPassword(passwords.encode(request.password()));
+         user.setFullName(request.fullName());
+         User saved = users.save(user);
+-        return new AuthResponse("Bearer", tokens.issue(saved.getUsername()), saved.getId(), saved.getUsername());
++        return new AuthResponse("Bearer", tokens.issue(saved.getUsername(), saved.getTokenVersion()), saved.getId(), saved.getUsername());
+     }
+ 
+     @Transactional(readOnly = true)
+@@ -48,6 +48,6 @@ public class AuthService {
+         if (!user.isEnabled() || !passwords.matches(request.password(), user.getPassword())) {
+             throw new InvalidCredentialsException("Tên đăng nhập hoặc mật khẩu không đúng");
+         }
+-        return new AuthResponse("Bearer", tokens.issue(user.getUsername()), user.getId(), user.getUsername());
++        return new AuthResponse("Bearer", tokens.issue(user.getUsername(), user.getTokenVersion()), user.getId(), user.getUsername());
+     }
+ }
+diff --git a/src/main/java/recipehub/security/JwtAccountValidator.java b/src/main/java/recipehub/security/JwtAccountValidator.java
+new file mode 100644
+index 0000000..3310b92
+--- /dev/null
++++ b/src/main/java/recipehub/security/JwtAccountValidator.java
+@@ -0,0 +1,37 @@
++package recipehub.security;
++
++import org.springframework.security.oauth2.core.OAuth2Error;
++import org.springframework.security.oauth2.core.OAuth2TokenValidator;
++import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
++import org.springframework.security.oauth2.jwt.Jwt;
++import org.springframework.stereotype.Component;
++import recipehub.user.entity.User;
++import recipehub.user.repository.UserRepository;
++
++@Component
++public class JwtAccountValidator implements OAuth2TokenValidator<Jwt> {
++    private final UserRepository users;
++
++    public JwtAccountValidator(UserRepository users) {
++        this.users = users;
++    }
++
++    @Override
++    public OAuth2TokenValidatorResult validate(Jwt token) {
++        Object version = token.getClaims().get("tokenVersion");
++        if (token.getSubject() == null || !(version instanceof Number)) {
++            return invalid();
++        }
++        User user = users.findByUsername(token.getSubject()).orElse(null);
++        if (user == null || !user.isEnabled()
++                || user.getTokenVersion() != ((Number) version).longValue()) {
++            return invalid();
++        }
++        return OAuth2TokenValidatorResult.success();
++    }
++
++    private OAuth2TokenValidatorResult invalid() {
++        return OAuth2TokenValidatorResult.failure(new OAuth2Error(
++                "invalid_token", "Tài khoản bị khóa hoặc phiên đăng nhập đã bị thu hồi", null));
++    }
++}
+diff --git a/src/main/java/recipehub/security/SecurityConfig.java b/src/main/java/recipehub/security/SecurityConfig.java
+index 060e8ac..8420bf9 100644
+--- a/src/main/java/recipehub/security/SecurityConfig.java
++++ b/src/main/java/recipehub/security/SecurityConfig.java
+@@ -16,6 +16,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
+ import org.springframework.security.oauth2.jwt.JwtEncoder;
+ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
++import org.springframework.security.oauth2.jwt.JwtValidators;
++import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+ import org.springframework.security.web.SecurityFilterChain;
+ import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+ 
+@@ -41,8 +43,12 @@ public class SecurityConfig {
+     }
+ 
+     @Bean
+-    public JwtDecoder jwtDecoder(javax.crypto.SecretKey jwtKey) {
+-        return NimbusJwtDecoder.withSecretKey(jwtKey).macAlgorithm(MacAlgorithm.HS256).build();
++    public JwtDecoder jwtDecoder(javax.crypto.SecretKey jwtKey, JwtAccountValidator accountValidator) {
++        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtKey)
++                .macAlgorithm(MacAlgorithm.HS256).build();
++        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
++                JwtValidators.createDefault(), accountValidator));
++        return decoder;
+     }
+ 
+     @Bean
+diff --git a/src/main/java/recipehub/security/TokenService.java b/src/main/java/recipehub/security/TokenService.java
+index 4f63b75..b11023e 100644
+--- a/src/main/java/recipehub/security/TokenService.java
++++ b/src/main/java/recipehub/security/TokenService.java
+@@ -21,10 +21,15 @@ public class TokenService {
+     }
+ 
+     public String issue(String username) {
++        return issue(username, 0L);
++    }
++
++    public String issue(String username, long tokenVersion) {
+         Instant now = Instant.now();
+         JwtClaimsSet claims = JwtClaimsSet.builder()
+                 .issuer("recipehub")
+                 .subject(username)
++                .claim("tokenVersion", tokenVersion)
+                 .issuedAt(now)
+                 .expiresAt(now.plus(expirationMinutes, ChronoUnit.MINUTES))
+                 .build();
+diff --git a/src/main/java/recipehub/user/entity/User.java b/src/main/java/recipehub/user/entity/User.java
+index d360b44..00bed4d 100644
+--- a/src/main/java/recipehub/user/entity/User.java
++++ b/src/main/java/recipehub/user/entity/User.java
+@@ -31,6 +31,14 @@ public class User {
+     private boolean enabled = true;
+     @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'USER'")
+     private String role = "USER";
++    @Column(name = "token_version", nullable = false, columnDefinition = "bigint default 0")
++    private long tokenVersion;
++    @Column(name = "locked_at")
++    private LocalDateTime lockedAt;
++    @Column(name = "lock_reason", length = 250)
++    private String lockReason;
++    @Column(name = "locked_by", length = 50)
++    private String lockedBy;
+     @Column(name = "created_at", nullable = false, updatable = false)
+     private LocalDateTime createdAt;
+     @Column(name = "updated_at", nullable = false)
+diff --git a/src/main/resources/static/admin.html b/src/main/resources/static/admin.html
+index a816b8d..a93ca34 100644
+--- a/src/main/resources/static/admin.html
++++ b/src/main/resources/static/admin.html
+@@ -9,7 +9,7 @@
+ <h1>📊 Dashboard RecipeHub</h1><p>Thống kê tổng quan và kiểm duyệt nội dung. Quyền Admin được xác thực tại server.</p></div></div>
+ <div class="metrics-grid" id="adminMetrics"></div>
+ <section class="panel admin-panel"><h2>👥 Người dùng (100 tài khoản gần nhất)</h2>
+-<div class="table-scroll"><table><thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Email</th><th>Quyền</th><th>Trạng thái</th></tr></thead><tbody id="adminUsers"></tbody></table></div></section>
++<div class="table-scroll"><table><thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Email</th><th>Quyền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody id="adminUsers"></tbody></table></div></section>
+ <section class="panel admin-panel"><h2>🍲 Quản lý công thức</h2><div class="table-scroll"><table><thead><tr><th>Tên món</th><th>Tác giả</th><th>Danh mục</th><th>Kiểm duyệt</th></tr></thead><tbody id="adminRecipes"></tbody></table></div></section>
+ <section class="panel admin-panel"><h2>💬 Bình luận gần đây</h2><div class="table-scroll"><table><thead><tr><th>Người viết</th><th>Nội dung</th><th>Công thức</th><th>Kiểm duyệt</th></tr></thead><tbody id="adminComments"></tbody></table></div></section>
+ </main><footer>RecipeHub Enterprise · Admin Dashboard · <a href="/swagger-ui.html">Swagger API</a></footer>
+diff --git a/src/main/resources/static/app.js b/src/main/resources/static/app.js
+index f69eaaf..548d4e5 100644
+--- a/src/main/resources/static/app.js
++++ b/src/main/resources/static/app.js
+@@ -411,6 +411,21 @@ async function refreshComments(recipeId) {
+   $('commentGuest').hidden = Boolean(session.token);
+ }
+ 
++function renderAdminUsers(users) {
++  $('adminUsers').innerHTML = users.map((user) => {
++    const reason = user.lockReason ? ` — ${user.lockReason}` : '';
++    const status = user.enabled ? 'Hoạt động' : 'Đã khóa';
++    const control = user.role === 'ADMIN' ? '—' :
++      `<button class="text-button" data-admin-toggle="${user.enabled ? 'lock' : 'unlock'}"
++       data-id="${user.id}" data-username="${escapeHtml(user.username)}">
++       ${user.enabled ? 'Khóa' : 'Mở khóa'}</button>`;
++    return `<tr><td>${escapeHtml(user.username)}</td>
++      <td>${escapeHtml(user.fullName || '')}</td><td>${escapeHtml(user.email)}</td>
++      <td>${escapeHtml(user.role)}</td><td title="${escapeHtml(reason)}">${status}${escapeHtml(reason)}</td>
++      <td>${control}</td></tr>`;
++  }).join('');
++}
++
+ async function adminDashboard() {
+   if (!session.token) { needLogin(); return; }
+   if (session.role !== 'ADMIN') { location.href = '/'; return; }
+@@ -425,9 +440,7 @@ async function adminDashboard() {
+   ];
+   $('adminMetrics').innerHTML = figures.map(([name, value]) =>
+     `<div class="metric"><span>${escapeHtml(name)}</span><strong>${Number(value)}</strong></div>`).join('');
+-  $('adminUsers').innerHTML = users.map((user) => `<tr><td>${escapeHtml(user.username)}</td>
+-    <td>${escapeHtml(user.fullName || '')}</td><td>${escapeHtml(user.email)}</td>
+-    <td>${escapeHtml(user.role)}</td><td>${user.enabled ? 'Hoạt động' : 'Vô hiệu'}</td></tr>`).join('');
++  renderAdminUsers(users);
+   $('adminRecipes').innerHTML = recipes.map((recipe) => `<tr><td><a href="/recipe.html?id=${recipe.id}">${escapeHtml(recipe.name)}</a></td>
+     <td>${escapeHtml(recipe.username)}</td><td>${escapeHtml(recipe.categoryName)}</td>
+     <td><button class="text-button" data-admin-delete="recipe" data-id="${recipe.id}">Xóa</button></td></tr>`).join('');
+@@ -436,6 +449,25 @@ async function adminDashboard() {
+     <td><a href="/recipe.html?id=${item.recipeId}">Xem bài</a></td>
+     <td><button class="text-button" data-admin-delete="comment" data-id="${item.id}">Xóa</button></td></tr>`).join('');
+   $('adminContent').addEventListener('click', async (event) => {
++    const toggle = event.target.closest('button[data-admin-toggle]');
++    if (toggle) {
++      const isLock = toggle.dataset.adminToggle === 'lock';
++      const username = toggle.dataset.username;
++      const reason = isLock ? prompt(`Lý do khóa tài khoản ${username}:`) : null;
++      if (isLock && (reason === null || !reason.trim())) {
++        if (reason !== null) toast('Bạn phải nhập lý do khóa.', true);
++        return;
++      }
++      if (!isLock && !confirm(`Mở khóa tài khoản ${username}?`)) return;
++      toggle.disabled = true;
++      try {
++        const url = `/api/admin/users/${toggle.dataset.id}/${isLock ? 'lock' : 'unlock'}`;
++        await api(url, { method: 'PATCH', ...(isLock ? { body: JSON.stringify({ reason: reason.trim() }) } : {}) });
++        toast(isLock ? 'Đã khóa tài khoản. Các JWT cũ đã bị thu hồi.' : 'Đã mở khóa. Người dùng cần đăng nhập lại.');
++        await adminDashboardRefresh();
++      } catch (error) { toast(error.message, true); toggle.disabled = false; }
++      return;
++    }
+     const button = event.target.closest('button[data-admin-delete]');
+     if (!button) return;
+     const type = button.dataset.adminDelete;
+@@ -451,9 +483,11 @@ async function adminDashboard() {
+   });
+ }
+ async function adminDashboardRefresh() {
+-  const [summary, comments, recipes] = await Promise.all([
+-    api('/api/admin/summary'), api('/api/admin/comments'), api('/api/recipes', { auth: false })
++  const [summary, users, comments, recipes] = await Promise.all([
++    api('/api/admin/summary'), api('/api/admin/users'),
++    api('/api/admin/comments'), api('/api/recipes', { auth: false })
+   ]);
++  renderAdminUsers(users);
+   const numbers = $('adminMetrics').querySelectorAll('.metric strong');
+   [summary.totalUsers, summary.totalRecipes, summary.totalCategories,
+     summary.totalIngredients, summary.totalComments].forEach((value, i) => { numbers[i].textContent = value; });
+diff --git a/src/test/java/recipehub/admin/service/AdminAccountLockServiceTest.java b/src/test/java/recipehub/admin/service/AdminAccountLockServiceTest.java
+new file mode 100644
+index 0000000..8ad00d6
+--- /dev/null
++++ b/src/test/java/recipehub/admin/service/AdminAccountLockServiceTest.java
+@@ -0,0 +1,101 @@
++package recipehub.admin.service;
++
++import java.util.Optional;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.springframework.security.access.AccessDeniedException;
++import recipehub.admin.dto.LockUserRequest;
++import recipehub.category.repository.CategoryRepository;
++import recipehub.comment.repository.CommentRepository;
++import recipehub.common.exception.DuplicateResourceException;
++import recipehub.common.exception.ResourceNotFoundException;
++import recipehub.ingredient.repository.IngredientRepository;
++import recipehub.recipe.repository.RecipeRepository;
++import recipehub.user.entity.User;
++import recipehub.user.repository.UserRepository;
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.Mockito.*;
++
++@ExtendWith(MockitoExtension.class)
++class AdminAccountLockServiceTest {
++    @Mock UserRepository users;
++    @Mock RecipeRepository recipes;
++    @Mock CategoryRepository categories;
++    @Mock IngredientRepository ingredients;
++    @Mock CommentRepository comments;
++    @InjectMocks AdminService service;
++
++    private User account(long id, String name, String role) {
++        User u = new User(); u.setId(id); u.setUsername(name); u.setRole(role);
++        return u;
++    }
++
++    private void admin() {
++        when(users.findByUsername("admin")).thenReturn(Optional.of(account(1L, "admin", "ADMIN")));
++    }
++
++    @Test void adminLocksAccountWithReasonAndRevokesPreviousTokens() {
++        admin();
++        User target = account(2L, "cook", "USER");
++        target.setTokenVersion(7);
++        when(users.findById(2L)).thenReturn(Optional.of(target));
++        when(users.save(target)).thenReturn(target);
++        var result = service.lockUser("admin", 2L, new LockUserRequest("  Spam  "));
++        assertFalse(result.enabled());
++        assertEquals("Spam", result.lockReason());
++        assertEquals("admin", result.lockedBy());
++        assertNotNull(result.lockedAt());
++        assertEquals(8, target.getTokenVersion());
++    }
++
++    @Test void unlockingClearsReasonAndRevokesOldTokensAgain() {
++        admin();
++        User target = account(2L, "cook", "USER");
++        target.setEnabled(false);
++        target.setTokenVersion(4);
++        target.setLockedBy("admin"); target.setLockReason("Spam");
++        when(users.findById(2L)).thenReturn(Optional.of(target));
++        when(users.save(target)).thenReturn(target);
++        var result = service.unlockUser("admin", 2L);
++        assertTrue(result.enabled());
++        assertNull(result.lockReason());
++        assertNull(result.lockedBy());
++        assertEquals(5, target.getTokenVersion());
++    }
++
++    @Test void rejectsUnknownAccountAndSelfOrAdminLock() {
++        admin();
++        assertThrows(ResourceNotFoundException.class,
++                () -> service.lockUser("admin", 404L, new LockUserRequest("Spam")));
++        when(users.findById(1L)).thenReturn(Optional.of(account(1L, "admin", "ADMIN")));
++        assertThrows(AccessDeniedException.class,
++                () -> service.lockUser("admin", 1L, new LockUserRequest("Spam")));
++        when(users.findById(3L)).thenReturn(Optional.of(account(3L, "otheradmin", "ADMIN")));
++        assertThrows(AccessDeniedException.class,
++                () -> service.unlockUser("admin", 3L));
++    }
++
++    @Test void rejectsRepeatedLockOrUnlock() {
++        admin();
++        User target = account(2L, "cook", "USER");
++        target.setEnabled(false);
++        when(users.findById(2L)).thenReturn(Optional.of(target));
++        assertThrows(DuplicateResourceException.class,
++                () -> service.lockUser("admin", 2L, new LockUserRequest("Spam")));
++        target.setEnabled(true);
++        assertThrows(DuplicateResourceException.class,
++                () -> service.unlockUser("admin", 2L));
++        verify(users, never()).save(any(User.class));
++    }
++
++    @Test void nonAdminCannotChangeAccounts() {
++        User normal = account(3L, "normal", "USER");
++        when(users.findByUsername("normal")).thenReturn(Optional.of(normal));
++        assertThrows(AccessDeniedException.class,
++                () -> service.lockUser("normal", 2L, new LockUserRequest("Spam")));
++        verify(users, never()).findById(anyLong());
++    }
++}
+diff --git a/src/test/java/recipehub/auth/service/AuthServiceTest.java b/src/test/java/recipehub/auth/service/AuthServiceTest.java
+index 0fe7844..fd4a138 100644
+--- a/src/test/java/recipehub/auth/service/AuthServiceTest.java
++++ b/src/test/java/recipehub/auth/service/AuthServiceTest.java
+@@ -34,7 +34,7 @@ class AuthServiceTest {
+             user.setId(3L);
+             return user;
+         });
+-        when(tokens.issue("thanh")).thenReturn("jwt");
++        when(tokens.issue("thanh", 0L)).thenReturn("jwt");
+         var response = service.register(request);
+         assertEquals(3L, response.userId());
+         assertEquals("jwt", response.accessToken());
+@@ -55,7 +55,7 @@ class AuthServiceTest {
+         User user = user();
+         when(users.findByUsername("thanh")).thenReturn(Optional.of(user));
+         when(passwords.matches("password123", "hash")).thenReturn(true);
+-        when(tokens.issue("thanh")).thenReturn("jwt");
++        when(tokens.issue("thanh", 0L)).thenReturn("jwt");
+         assertEquals("jwt", service.login(new LoginRequest("thanh", "password123")).accessToken());
+     }
+ 
+diff --git a/src/test/java/recipehub/integration/RecipeHubAccountLockIntegrationTest.java b/src/test/java/recipehub/integration/RecipeHubAccountLockIntegrationTest.java
+new file mode 100644
+index 0000000..c541d78
+--- /dev/null
++++ b/src/test/java/recipehub/integration/RecipeHubAccountLockIntegrationTest.java
+@@ -0,0 +1,104 @@
++package recipehub.integration;
++
++import java.util.UUID;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
++import org.springframework.http.MediaType;
++import org.springframework.test.web.servlet.MockMvc;
++import org.springframework.transaction.annotation.Transactional;
++import recipehub.user.repository.UserRepository;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
++
++@SpringBootTest
++@AutoConfigureMockMvc
++@Transactional
++class RecipeHubAccountLockIntegrationTest {
++    @Autowired MockMvc mvc;
++    @Autowired UserRepository users;
++
++    private record Account(String username, String token, Long id) { }
++
++    private Account register(String label) throws Exception {
++        String username = label + UUID.randomUUID().toString().replace("-", "").substring(0, 9);
++        String body = """
++            {"username":"%s","email":"%s@example.com","password":"strongpassword","fullName":"Test User"}
++            """.formatted(username, username);
++        String response = mvc.perform(post("/api/auth/register")
++                .contentType(MediaType.APPLICATION_JSON).content(body))
++                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
++        Long id = users.findByUsername(username).orElseThrow().getId();
++        return new Account(username, response.split("\"accessToken\":\"")[1].split("\"")[0], id);
++    }
++
++    private String bearer(Account account) { return "Bearer " + account.token(); }
++
++    private String lockPath(Account user) { return "/api/admin/users/" + user.id() + "/lock"; }
++
++    @Test void lockAndUnlockRevokeOldJwtAndAdminIsProtected() throws Exception {
++        Account admin = register("operator");
++        Account member = register("member");
++        Account other = register("other");
++        var operator = users.findByUsername(admin.username()).orElseThrow();
++        operator.setRole("ADMIN");
++        users.saveAndFlush(operator);
++
++        mvc.perform(get("/api/users/me").header("Authorization", bearer(member)))
++                .andExpect(status().isOk());
++        mvc.perform(patch(lockPath(member)).header("Authorization", bearer(other))
++                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Spam\"}"))
++                .andExpect(status().isForbidden());
++        mvc.perform(patch(lockPath(member)).header("Authorization", bearer(admin))
++                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"   \"}"))
++                .andExpect(status().isBadRequest());
++        mvc.perform(patch(lockPath(member)).header("Authorization", bearer(admin))
++                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Spam links\"}"))
++                .andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(false))
++                .andExpect(jsonPath("$.lockReason").value("Spam links"));
++        mvc.perform(get("/api/users/me").header("Authorization", bearer(member)))
++                .andExpect(status().isUnauthorized());
++        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
++                .content("{\"username\":\"%s\",\"password\":\"strongpassword\"}".formatted(member.username())))
++                .andExpect(status().isUnauthorized());
++        mvc.perform(get("/api/recipes")).andExpect(status().isOk());
++        mvc.perform(patch(lockPath(member)).header("Authorization", bearer(admin))
++                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Again\"}"))
++                .andExpect(status().isConflict());
++        mvc.perform(patch("/api/admin/users/" + member.id() + "/unlock")
++                .header("Authorization", bearer(admin)))
++                .andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(true));
++        mvc.perform(get("/api/users/me").header("Authorization", bearer(member)))
++                .andExpect(status().isUnauthorized());
++        String loginResponse = mvc.perform(post("/api/auth/login")
++                .contentType(MediaType.APPLICATION_JSON).content("""
++                    {"username":"%s","password":"strongpassword"}
++                    """.formatted(member.username())))
++                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
++        String newToken = loginResponse.split("\"accessToken\":\"")[1].split("\"")[0];
++        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + newToken))
++                .andExpect(status().isOk());
++        mvc.perform(patch("/api/admin/users/" + member.id() + "/unlock")
++                .header("Authorization", bearer(admin))).andExpect(status().isConflict());
++    }
++
++    @Test void adminCannotLockOwnOrAnotherAdminsAccount() throws Exception {
++        Account admin = register("admin");
++        Account admin2 = register("admin2");
++        var first = users.findByUsername(admin.username()).orElseThrow();
++        first.setRole("ADMIN"); users.saveAndFlush(first);
++        var second = users.findByUsername(admin2.username()).orElseThrow();
++        second.setRole("ADMIN"); users.saveAndFlush(second);
++        mvc.perform(patch(lockPath(admin)).header("Authorization", bearer(admin))
++                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Test\"}"))
++                .andExpect(status().isForbidden());
++        mvc.perform(patch(lockPath(admin2)).header("Authorization", bearer(admin))
++                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Test\"}"))
++                .andExpect(status().isForbidden());
++        mvc.perform(patch("/api/admin/users/99999999/lock")
++                .header("Authorization", bearer(admin))
++                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Test\"}"))
++                .andExpect(status().isNotFound());
++    }
++}
+diff --git a/src/test/java/recipehub/integration/RecipeHubCommentsAdminIntegrationTest.java b/src/test/java/recipehub/integration/RecipeHubCommentsAdminIntegrationTest.java
+index 7a53da2..db333bb 100644
+--- a/src/test/java/recipehub/integration/RecipeHubCommentsAdminIntegrationTest.java
++++ b/src/test/java/recipehub/integration/RecipeHubCommentsAdminIntegrationTest.java
+@@ -156,7 +156,7 @@ class RecipeHubCommentsAdminIntegrationTest {
+         operator.setEnabled(false);
+         users.saveAndFlush(operator);
+         mvc.perform(get("/api/admin/summary").header("Authorization", bearer(admin)))
+-            .andExpect(status().isForbidden());
++            .andExpect(status().isUnauthorized());
+         String recipeId = createRecipe(author);
+         comment(recipeId, author, "Bình luận trước khi xóa");
+         mvc.perform(delete("/api/recipes/" + recipeId).header("Authorization", bearer(author)))
+diff --git a/src/test/java/recipehub/security/JwtAccountValidatorTest.java b/src/test/java/recipehub/security/JwtAccountValidatorTest.java
+new file mode 100644
+index 0000000..b792896
+--- /dev/null
++++ b/src/test/java/recipehub/security/JwtAccountValidatorTest.java
+@@ -0,0 +1,48 @@
++package recipehub.security;
++
++import java.time.Instant;
++import java.util.Optional;
++import org.junit.jupiter.api.Test;
++import org.springframework.security.oauth2.jwt.Jwt;
++import recipehub.user.entity.User;
++import recipehub.user.repository.UserRepository;
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.Mockito.*;
++
++class JwtAccountValidatorTest {
++    private final UserRepository users = mock(UserRepository.class);
++    private final JwtAccountValidator validator = new JwtAccountValidator(users);
++
++    private Jwt jwt(String username, Object version) {
++        var builder = Jwt.withTokenValue("test")
++                .header("alg", "HS256")
++                .subject(username)
++                .issuedAt(Instant.now().minusSeconds(5))
++                .expiresAt(Instant.now().plusSeconds(60));
++        if (version != null) builder.claim("tokenVersion", version);
++        return builder.build();
++    }
++
++    @Test void rejectsMissingVersionOrUnknownUser() {
++        assertTrue(validator.validate(jwt("user", null)).hasErrors());
++        assertTrue(validator.validate(jwt("missing", 0)).hasErrors());
++    }
++
++    @Test void rejectsDisabledAccountAndRevokedVersion() {
++        User user = new User();
++        user.setUsername("user");
++        user.setTokenVersion(3);
++        when(users.findByUsername("user")).thenReturn(Optional.of(user));
++        assertTrue(validator.validate(jwt("user", 2)).hasErrors());
++        user.setEnabled(false);
++        assertTrue(validator.validate(jwt("user", 3)).hasErrors());
++    }
++
++    @Test void acceptsEnabledAccountWithCurrentVersion() {
++        User user = new User();
++        user.setUsername("user");
++        user.setTokenVersion(7);
++        when(users.findByUsername("user")).thenReturn(Optional.of(user));
++        assertFalse(validator.validate(jwt("user", 7)).hasErrors());
++    }
++}
+diff --git a/src/test/java/recipehub/security/SecurityConfigTest.java b/src/test/java/recipehub/security/SecurityConfigTest.java
+index c12d43a..9c591cd 100644
+--- a/src/test/java/recipehub/security/SecurityConfigTest.java
++++ b/src/test/java/recipehub/security/SecurityConfigTest.java
+@@ -21,6 +21,7 @@ class SecurityConfigTest {
+         var config = new SecurityConfig();
+         var key = config.jwtKey("abcdefghijklmnopqrstuvwxyz0123456789");
+         assertNotNull(config.jwtEncoder(key));
+-        assertNotNull(config.jwtDecoder(key));
++        assertNotNull(config.jwtDecoder(key, new JwtAccountValidator(
++                org.mockito.Mockito.mock(recipehub.user.repository.UserRepository.class))));
+     }
+ }
+diff --git a/src/test/java/recipehub/security/TokenServiceTest.java b/src/test/java/recipehub/security/TokenServiceTest.java
+index d506ec9..2ef6bd1 100644
+--- a/src/test/java/recipehub/security/TokenServiceTest.java
++++ b/src/test/java/recipehub/security/TokenServiceTest.java
+@@ -18,5 +18,6 @@ class TokenServiceTest {
+         assertEquals("thanh", jwt.getSubject());
+         assertTrue(jwt.getExpiresAt().isAfter(Instant.now()));
+         assertEquals("recipehub", jwt.getClaimAsString("iss"));
++        assertEquals(0, ((Number) jwt.getClaim("tokenVersion")).longValue());
+     }
+ }

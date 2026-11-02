@@ -1,0 +1,27 @@
+name: Java CI
+on:
+  push:
+  pull_request:
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Unit and MockMvc tests, JaCoCo coverage and static analysis
+        run: bash ./mvnw -B clean verify
+      - name: Upload test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recipehub-quality-reports
+          path: |
+            target/site/jacoco/
+            target/surefire-reports/
+            target/site/checkstyle.html
+            target/site/pmd.html
+            target/spotbugsXml.xml

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quản trị | RecipeHub Enterprise</title><link rel="stylesheet" href="/styles.css"></head>
+<body data-page="admin"><header class="topbar"><a class="brand" href="/">🍲 <span>RecipeHub</span> <small>Enterprise</small></a>
+<nav class="nav"><a href="/">Trang chủ</a><a href="/editor.html" data-auth hidden>+ Tạo công thức</a>
+<a href="/admin.html" data-admin hidden>Quản trị</a><span id="loginState" class="login-state" data-auth hidden></span>
+<button id="logoutBtn" class="text-button" data-auth hidden>Đăng xuất</button></nav></header>
+<main class="section" id="adminContent"><div class="section-head"><div><span class="eyebrow">DÀNH CHO QUẢN TRỊ VIÊN</span>
+<h1>📊 Dashboard RecipeHub</h1><p>Thống kê tổng quan và kiểm duyệt nội dung. Quyền Admin được xác thực tại server.</p></div></div>
+<div class="metrics-grid" id="adminMetrics"></div>
+<section class="panel admin-panel"><h2>👥 Người dùng (100 tài khoản gần nhất)</h2>
+<div class="table-scroll"><table><thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Email</th><th>Quyền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody id="adminUsers"></tbody></table></div></section>
+<section class="panel admin-panel"><h2>🍲 Quản lý công thức</h2><div class="table-scroll"><table><thead><tr><th>Tên món</th><th>Tác giả</th><th>Danh mục</th><th>Kiểm duyệt</th></tr></thead><tbody id="adminRecipes"></tbody></table></div></section>
+<section class="panel admin-panel"><h2>💬 Bình luận gần đây</h2><div class="table-scroll"><table><thead><tr><th>Người viết</th><th>Nội dung</th><th>Công thức</th><th>Kiểm duyệt</th></tr></thead><tbody id="adminComments"></tbody></table></div></section>
+</main><footer>RecipeHub Enterprise · Admin Dashboard · <a href="/swagger-ui.html">Swagger API</a></footer>
+<div class="toast" id="status" role="status" hidden></div><script src="/app.js" defer></script></body></html>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="RecipeHub Java safety" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.github.io/schema/ruleset_2_0_0.xsd">
+ <description>Required baseline static analysis; fail Maven build on violations.</description>
+ <rule ref="category/java/errorprone.xml/EmptyCatchBlock"/>
+ <rule ref="category/java/codestyle.xml/EmptyControlStatement"/>
+ <rule ref="category/java/bestpractices.xml/AvoidPrintStackTrace"/>
+ <rule ref="category/java/errorprone.xml/ReturnFromFinallyBlock"/>
+</ruleset>

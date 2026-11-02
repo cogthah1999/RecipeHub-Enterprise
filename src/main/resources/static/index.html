@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="RecipeHub Enterprise — khám phá và chia sẻ công thức nấu ăn">
+<title>Món ngon mỗi ngày | RecipeHub Enterprise</title><link rel="stylesheet" href="/styles.css"></head><body data-page="home"><header class="topbar">
+  <a class="brand" href="/">🍲 <span>RecipeHub</span> <small>Enterprise</small></a>
+  <nav class="nav" aria-label="Điều hướng chính">
+    <a href="/">Trang chủ</a><a href="/#recipes">Công thức</a>
+    <a href="/editor.html" data-auth hidden>+ Tạo công thức</a>
+    <a href="/admin.html" data-admin hidden>Quản trị</a>
+    <a href="/login.html" data-guest>Đăng nhập</a>
+    <a class="nav-cta" href="/register.html" data-guest>Đăng ký</a>
+    <span id="loginState" class="login-state" data-auth hidden></span>
+    <button type="button" class="text-button" id="logoutBtn" data-auth hidden>Đăng xuất</button>
+  </nav>
+</header>
+<main>
+  <section class="hero">
+    <div class="hero-inner"><div class="eyebrow">KHÁM PHÁ • NẤU ĂN • CHIA SẺ</div>
+    <h1>Món ngon mỗi ngày,<br><em>ghi lại theo cách bạn.</em></h1>
+    <p>Tra cứu nguyên liệu, cách chế biến và khám phá công thức nấu ăn từ cộng đồng. Không cần tài khoản để xem công thức.</p>
+    <div class="hero-actions"><a class="button" href="#recipes">Khám phá công thức</a>
+    <a class="button outline" href="/editor.html" data-auth hidden>Viết công thức của bạn</a>
+    <a class="button outline" href="/register.html" data-guest>Tham gia chia sẻ</a></div></div>
+    <div class="hero-art" aria-hidden="true">🍲<span>Khơi nguồn cảm hứng trong gian bếp</span></div>
+  </section>
+  <section class="section" id="recipes"><div class="section-head"><div><span class="eyebrow">THƯ VIỆN MỞ</span><h2>Công thức nấu ăn</h2><p>Xem miễn phí, không cần đăng nhập.</p></div><span class="count" id="recipeCount"></span></div>
+    <form class="filters" id="searchForm" role="search"><label>Tìm tên món ăn<input name="keyword" id="search" placeholder="Ví dụ: gà chiên nước mắm" autocomplete="off"></label>
+    <label>Danh mục<select name="categoryId" id="filterCategory"><option value="">Tất cả danh mục</option></select></label>
+    <button class="button" type="submit">Tìm kiếm</button><button class="button outline" type="button" id="myRecipesBtn" data-auth hidden>Chỉ bài của tôi</button></form>
+    <div id="recipeCards" class="recipe-grid" aria-live="polite"><p class="empty">Đang tải công thức...</p></div>
+  </section>
+  <section class="join-banner"><div><span class="eyebrow">CHIA SẺ CÙNG MỌI NGƯỜI</span><h2>Bạn có món ngon muốn lưu lại?</h2><p>Tạo tài khoản và đăng công thức riêng. Người khác chỉ có thể tham khảo, không sửa bài của bạn.</p></div>
+    <a href="/register.html" class="button" data-guest>Đăng ký miễn phí</a><a href="/editor.html" class="button" data-auth hidden>+ Tạo công thức</a></section>
+</main><footer>RecipeHub Enterprise · Java 25 · Spring Boot · MySQL · JWT · <a href="/swagger-ui.html" target="_blank" rel="noopener noreferrer">API Docs</a></footer>
+<div class="toast" id="status" role="status" aria-live="polite" hidden></div>
+<script src="/app.js" defer></script></body></html>
