@@ -1,10 +1,19 @@
-# RecipeHub Enterprise
+## Trạng thái dự án
 
-Ứng dụng quản lý và chia sẻ công thức nấu ăn để làm portfolio **Fresher Java**.
+**RecipeHub Enterprise — Portfolio Project (MVP)**
 
-**Stack:** Java 25 · Spring Boot 4.1.1 · Spring MVC · Spring Data JPA · MySQL 8 · Spring Security/JWT (HS256) · H2 (test) · Maven · JUnit Jupiter · Mockito · MockMvc · JaCoCo · PMD · Checkstyle · Docker · Swagger · HTML/CSS/JavaScript.
+- Java 25, Spring Boot 4.1.1, MySQL 8, Spring Security và JWT.
+- Hoàn thành REST API cho Recipe, Category, Ingredient, Comments và quản lý tài khoản.
+- Phân quyền Guest / User / Admin.
+- Admin Dashboard, kiểm duyệt nội dung và khóa/mở khóa tài khoản.
+- JUnit, Mockito, MockMvc, JaCoCo, PMD, Checkstyle và SpotBugs.
+- **Maven Build:** SUCCESS.
+- **GitHub Actions CI:** SUCCESS, chạy tự động trên Java 25.
+- **Coverage Quality Gate:** tối thiểu 80%.
+- Đã kiểm thử API bằng Postman và Smoke Test trên Docker.
+- Đã kiểm thử thành công 8/8 tình huống quản lý trạng thái tài khoản.
 
-> Trạng thái phát hành: **source hoàn thiện ở mức MVP, cần chạy `mvn clean verify` + smoke test trên máy có JDK 25/Maven và Docker trước khi công bố đạt chất lượng**. Không khẳng định đã đạt 80% nếu chưa có báo cáo JaCoCo thực tế.
+**Lưu ý:** Dự án phục vụ học tập và portfolio, chưa phải hệ thống được cấu hình để triển khai production công khai.
 
 ## Nâng cấp Comments & Admin (02/11/2026)
 
